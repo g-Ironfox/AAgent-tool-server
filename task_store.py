@@ -137,7 +137,7 @@ class TaskStore:
             return False, payload
         task = json.loads(payload)
         if self.task_logs:
-            await self.task_logs.record("transition", task)
+            await self.task_logs.record("transition", task) # 保存到mongodb
         return True, task
 
     async def wait_for_terminal(self, task_id: str, timeout_seconds: float) -> dict[str, Any] | None:

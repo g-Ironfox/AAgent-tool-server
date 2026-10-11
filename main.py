@@ -115,7 +115,15 @@ async def handle_provider_event(connection: ProviderConnection, event: ProviderE
         if event.success:
             tool = await registry.get_tool(task["tool"])
             if tool:
-                Draft202012Validator(tool.outputSchema).validate(event.output)
+                try:
+                    Draft202012Validator(tool.outputSchema).validate(event.output)
+                except ValidationError as error:
+                    await transition_terminal(task, {
+                        "status": "failed",
+                        "result": None,
+                        "error": {"code": "OutputValidationError", "message": error.message},
+                    })
+                    return
             await transition_terminal(task, {"status": "completed", "result": event.output, "error": None})
         else:
             await transition_terminal(task, {"status": "failed", "result": None, "error": event.error})
