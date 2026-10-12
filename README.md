@@ -23,6 +23,34 @@ docker compose down
 
 `docker compose down` 保留数据卷；`docker compose down -v` **会删除 Redis 和 MongoDB 数据卷**。不要将含密码的 `.env` 提交到仓库。
 
+## 管理页面
+
+打开 `http://127.0.0.1:8083/` 可查看内置管理页面。页面按可配置间隔自动刷新，顶部展示在线 Provider、可用工具、执行中任务和失败任务等概览，下方分为 Provider 连接、工具目录和任务流水三栏；点击工具可打开调用弹窗，点击任务可打开任务检查器查看参数与结果。
+
+### 首页概览
+
+Provider 连接、工具目录（含工具说明、所属 Provider、Revision）与任务流水集中在一屏内；工具可搜索、任务可按状态筛选。
+
+![首页概览](docs/images/home.png)
+
+### 派发任务
+
+在工具调用弹窗中填写参数 JSON，选择调用模式（同步等待 / 异步返回）与等待上限，然后提交任务。
+
+![派发任务](docs/images/publish_task.png)
+
+### 异步任务与 Redis 回调
+
+勾选「任务终态后发送 Redis 回调」后，可指定 Redis List key、事件类型与触发状态，任务进入对应状态时把结果写入回调队列。
+
+![异步任务与 Redis 回调](docs/images/async_callback_task.png)
+
+### 任务检查器
+
+点击任务流水中的任意任务，可查看任务 ID、状态、Provider、创建/更新时间，以及完整的返回值 JSON。
+
+![任务检查器](docs/images/history.png)
+
 ## 接入 Provider
 
 Provider 连接 `ws://<tool-server-host>:8083/ws/providers`，先发送包含 `provider_id`、递增的 `revision` 及工具 Schema 的 `register` 消息，注册成功后才会出现在 `/api/tools`。可使用配套的 [Tool Provider](../tool_provider/README.md) 实现工具及启动 Provider。若 Provider 运行在另一个容器内，地址应使用容器可达的主机名，而不是该容器自身的 `localhost`。
