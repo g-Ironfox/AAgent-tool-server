@@ -238,8 +238,6 @@ async def call_tool(tool_name: str, request: ToolCallRequest):
     tool = await registry.get_tool(tool_name)
     if tool is None:
         raise HTTPException(status_code=503, detail="tool provider is unavailable")
-    if request.callback and request.callback.event_type not in settings.callback_event_types:
-        raise HTTPException(status_code=400, detail="callback event type is not allowed")
     try:
         Draft202012Validator.check_schema(tool.inputSchema)
         Draft202012Validator(tool.inputSchema).validate(request.arguments)

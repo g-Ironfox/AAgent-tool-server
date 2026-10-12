@@ -181,7 +181,7 @@ print(response.json())
 
 ### 9. 提交带 Redis 回调的任务
 
-在调用体中传入 `callback`：`queue` 指定 Redis 队列，`event_type` 必须在 `TOOL_CALLBACK_EVENT_TYPES` 白名单内。`on` 指定通知的任务状态；省略时通知 `working`、`completed`、`failed`。回调仅写入 Redis 队列，队列消费者需自行部署。
+在调用体中传入 `callback`：`queue` 指定 Redis 队列，`event_type` 可填写任意非空字符串（最多 128 个字符）。`on` 指定通知的任务状态；省略时通知 `working`、`completed`、`failed`。回调仅写入 Redis 队列，队列消费者需自行部署。
 
 ```bash
 curl -X POST http://127.0.0.1:8083/api/tools/web.search/calls \
@@ -237,6 +237,5 @@ print(response.json())
 | `MONGO_TOOL_TASK_LOG_COLLECTION` | `tool_task_logs` | 任务日志集合 |
 | `TOOL_TASK_TTL_SECONDS` | `86400` | Redis 中任务状态的过期时间（秒） |
 | `TOOL_MAX_WAIT_MS` | `30000` | 同步调用等待上限（毫秒） |
-| `TOOL_CALLBACK_EVENT_TYPES` | `async_result` | 允许的回调事件类型，逗号分隔 |
 
 使用独立 Compose 时，`REDIS_HOST` 和 `MONGO_HOST` 由容器网络提供，不必改成 `localhost`。独立 Compose 未传入 `REDIS_URL`；如需使用外部 Redis，应修改部署配置。修改已初始化 MongoDB 数据卷的凭据不会重建数据库用户，请按实际部署流程处理凭据变更。

@@ -2,8 +2,33 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from main import handle_provider_event
-from models import ProviderEvent
+from main import call_tool, handle_provider_event
+from models import ProviderEvent, ToolCallRequest
+
+
+class CallbackEventTypeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_unlisted_event_type_is_accepted(self):
+        tool = SimpleNamespace(inputSchema={"type": "object"})
+        registry = SimpleNamespace(
+            get_tool=AsyncMock(return_value=tool),
+            list_tools=AsyncMock(return_value=[{"name": "test.echo", "provider_id": "provider"}]),
+            send=AsyncMock(return_value=True),
+        )
+        store = SimpleNamespace(
+            create=AsyncMock(return_value=True),
+            transition=AsyncMock(),
+            get=AsyncMock(return_value={"status": "pending"}),
+        )
+        request = ToolCallRequest(
+            arguments={}, mode="async",
+            callback={"type": "redis", "queue": "results", "event_type": "custom_event"},
+        )
+
+        with patch("main.store", store), patch("main.registry", registry):
+            response = await call_tool("test.echo", request)
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(store.create.await_args.args[0]["callback"]["event_type"], "custom_event")
 
 
 class ProviderResultTests(unittest.IsolatedAsyncioTestCase):
