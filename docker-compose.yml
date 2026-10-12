@@ -1,0 +1,99 @@
+# tool_server/docker-compose.yml — Tool Server 独立运行配置
+#
+# 只包含 Tool Server 本身和它的两个依赖(Redis + MongoDB)，不依赖上级目录，
+# 可以随 Tool Server 仓库单独发布、单独启动。
+#
+# 用法(在 tool_server/ 目录执行):
+#   docker compose up -d --build
+#   docker compose logs -f tool_server
+#   curl http://127.0.0.1:8083/api/health
+#   docker compose down        # 停止并删除容器(数据卷保留)
+#   docker compose down -v     # 连数据卷一起删除
+#
+# 需要覆盖默认值时，在本目录放一个 .env，compose 会自动读取(该文件已被忽略，不会提交、也不会打进镜像)。
+# 若与完整平台的 stack 同时运行，用 TOOL_SERVER_PORT 换一个宿主机端口，避免 8083 冲突。
+
+services:
+  tool_server:
+    build: .
+    image: aagent-tool-server:local
+    container_name: tool_server_standalone
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_USER: ${MONGO_USER:-}
+      MONGO_PASS: ${MONGO_PASS:-}
+      MONGO_DATABASE: ${MONGO_DATABASE:-agent}
+      MONGO_TOOL_TASK_LOG_COLLECTION: ${MONGO_TOOL_TASK_LOG_COLLECTION:-tool_task_logs}
+      TOOL_CALLBACK_EVENT_TYPES: ${TOOL_CALLBACK_EVENT_TYPES:-async_result}
+      TOOL_TASK_TTL_SECONDS: ${TOOL_TASK_TTL_SECONDS:-86400}
+      TOOL_MAX_WAIT_MS: ${TOOL_MAX_WAIT_MS:-30000}
+      TOOL_DISPATCH_TIMEOUT_SECONDS: ${TOOL_DISPATCH_TIMEOUT_SECONDS:-5}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "${TOOL_SERVER_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/api/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - tool_server_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: tool_server_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    # 需要在本机查看数据时再打开:
+    # ports:
+    #   - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - tool_server_net
+
+  mongodb:
+    image: mongo:8
+    container_name: tool_server_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS:-}
+    volumes:
+      - mongo_data:/data/db
+    # 需要在本机查看数据时再打开:
+    # ports:
+    #   - "27016:27017"
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
+      interval: 30s
+      start_interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - tool_server_net
+
+volumes:
+  redis_data:
+  mongo_data:
+
+networks:
+  tool_server_net:
+    driver: bridge
